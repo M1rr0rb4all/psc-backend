@@ -1,22 +1,28 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from psc_utils import build_structure
 import os
-from psc_lookup import build_structure
 
-app = Flask(__name__)
-CORS(app)
+app = FastAPI()
 
-@app.route("/api/ownership-tree", methods=["GET"])
-def ownership_tree():
-    company_number = request.args.get("company_number")
-    if not company_number:
-        return jsonify({"error": "Missing company_number"}), 400
+# Enable CORS for frontend requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+API_KEY = os.getenv("COMPANIES_HOUSE_API_KEY")
+
+@app.get("/ownership-structure/")
+async def get_structure(company_name: str):
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="API key not configured")
 
     try:
-        structure = build_structure(company_number)
-        return jsonify(structure)
+        structure = build_structure(company_name, API_KEY)
+        return structure
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True)
+        raise HTTPException(status_code=500, detail=str(e))
